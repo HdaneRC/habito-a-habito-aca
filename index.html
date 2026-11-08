@@ -1,0 +1,76 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hábito a Hábito</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:17px system-ui;color:#20332c;background:#f8f9f3}header{background:white;border-bottom:1px solid #dce3d8;padding:14px max(4vw,16px);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}strong{color:#214d3d}nav,.actions,.filters{display:flex;flex-wrap:wrap;gap:8px}button,input,select,textarea{font:inherit}button{border:1px solid #cbd8ce;background:white;color:#214d3d;padding:9px 13px;border-radius:9px;cursor:pointer}button:hover{border-color:#214d3d}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #92763f;outline-offset:2px}.primary,.hero{background:#214d3d;color:white}.hero{padding:24px;border-radius:16px;margin-bottom:18px}.hero h1{margin:4px 0 8px;font-size:clamp(26px,5vw,42px)}main{max-width:1050px;margin:auto;padding:25px 18px}form.search{display:flex;gap:8px;margin-bottom:12px}input,select,textarea{border:1px solid #cbd8ce;border-radius:8px;padding:9px;background:white;color:inherit;width:100%}.grid,.forms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{background:white;border:1px solid #dce3d8;border-radius:14px;padding:14px;margin-bottom:12px}.art{display:grid;place-items:center;border-radius:10px;min-height:84px;font-size:36px;margin-bottom:12px}.tag{font-size:13px;font-weight:700;text-transform:uppercase;color:#214d3d}.card h2{margin:4px 0}.card p{color:#51625a}label{display:block;margin:10px 0}.check input{width:auto}.days{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}.day{min-width:34px;text-align:center;background:#edf1e8;padding:6px;border-radius:6px}.done{background:#214d3d;color:white}#status{min-height:1.3em;color:#214d3d}footer{padding:20px;text-align:center;color:#51625a;font-size:14px}ol{padding-left:24px}@media(max-width:620px){.grid,.forms{grid-template-columns:1fr}header{padding:12px}nav button{font-size:14px;padding:7px}main{padding:15px 12px}.filters button{font-size:14px}.hero{padding:17px}}
+</style>
+<header><strong>Hábito a Hábito</strong><nav aria-label="Navegación principal"></nav></header><main id="app"></main><footer>Prototipo académico · Utiliza datos de ejemplo</footer>
+<script>
+const categories=['Alimentación','Actividad física','Descanso','Bienestar'];
+const icons=['◉','➜','☾','✦'], colors=['#f2dfc7','#dde9ce','#e4e0f0','#f1e2d8'];
+const seed=[
+{id:'comidas',title:'Organiza tus comidas',cat:0,summary:'Planea tus comidas con una lista sencilla.',steps:['Elige qué preparar.','Haz una lista de ingredientes.']},
+{id:'caminata',title:'Planea una caminata',cat:1,summary:'Reserva un momento para salir a caminar.',steps:['Elige un horario.','Planea un recorrido.']},
+{id:'rutina',title:'Rutina nocturna',cat:2,summary:'Prepara tu espacio antes de ir a dormir.',steps:['Ordena el espacio que vas a usar.','Deja listo lo que necesitas para mañana.','Elige una actividad tranquila para cerrar el día.']},
+{id:'pausa',title:'Pausa consciente',cat:3,summary:'Haz una pausa breve en tu jornada.',steps:['Reserva un momento.','Retoma tu actividad cuando estés listo.']}
+];
+const key='habito-aca-v1', app=document.querySelector('#app'),nav=document.querySelector('nav');
+let db;try{db=JSON.parse(localStorage.getItem(key))}catch{} db??={items:seed,profiles:{},active:null};
+const save=()=>localStorage.setItem(key,JSON.stringify(db));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const profile=()=>db.active?db.profiles[db.active]:null;
+let page='Explorar', selected='rutina', query='', filter=-1, next=null, editId=null, message='';
+const normalize=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const today=()=>new Date();
+const dayKey=d=>[d.getFullYear(),d.getMonth()+1,d.getDate()].join('-');
+const hero=(title,sub)=>'<section class="hero"><small>HÁBITO A HÁBITO</small><h1>'+title+'</h1>'+sub+'</section>';
+const button=(label,action,arg='',primary=false)=>'<button type="button" data-do="'+action+'" data-arg="'+esc(arg)+'"'+(primary?' class="primary"':'')+'>'+esc(label)+'</button>';
+const art=i=>'<div class="art" style="background:'+colors[i]+'" aria-hidden="true">'+icons[i]+'</div>';
+const card=(item,fav=false)=>'<article class="card">'+art(item.cat)+'<span class="tag">'+categories[item.cat]+'</span><h2>'+esc(item.title)+'</h2><p>'+esc(item.summary)+'</p><div class="actions">'+button('Ver ficha','detail',item.id,true)+(fav?button('Quitar de la lista','favorite',item.id):'')+'</div></article>';
+function go(target){if(['Favoritos','Mis hábitos','Mi perfil'].includes(target)&&!profile()){next={page:target};page='Acceso'}else{page=target}message='';render();window.scrollTo(0,0)}
+function perform(action,id){const p=profile();if(!p){next={page:'Ficha',action,id};page='Acceso';render();window.scrollTo(0,0);return}
+ if(action==='favorite'){p.favorites=p.favorites.includes(id)?p.favorites.filter(x=>x!==id):[...p.favorites,id];message=p.favorites.includes(id)?'Recomendación guardada.':'Recomendación retirada.'}
+ if(action==='habit'){p.habits[id]??=[];message='Rutina añadida a Mis hábitos.'}
+ if(action==='today'){const date=dayKey(today());if(!p.habits[id].includes(date))p.habits[id].push(date);message='Cumplimiento registrado.'}
+ save();render()
+}
+function render(){
+ const p=profile();
+ nav.innerHTML=['Explorar','Para ti','Favoritos','Mis hábitos',...(p?['Mi perfil']:[])].map(n=>button(n,'go',n,n===page)).join('')+button('Panel de contenidos','go','Panel de contenidos')+button(p?'Cerrar sesión':'Iniciar sesión',p?'logout':'go','Acceso');
+ let html='';
+ if(page==='Explorar'){
+  const q=normalize(query.trim());const results=db.items.filter(i=>(filter===-1||i.cat===filter)&&normalize(i.title+' '+i.summary).includes(q));
+  html=hero('Pequeños hábitos, a tu ritmo','Encuentra ideas para incorporar a tu rutina.')+'<form class="search" id="search"><input name="query" aria-label="Buscar por palabra clave" placeholder="Buscar por palabra clave" value="'+esc(query)+'"><button class="primary">Buscar</button></form><div class="filters">'+['Todas',...categories].map((c,i)=>button(c,'filter',i-1,filter===i-1)).join('')+'</div><p>'+results.length+' resultados</p>'+(results.length?'<div class="grid">'+results.map(i=>card(i)).join('')+'</div>':'<p>No hay recomendaciones que coincidan.</p>'+button('Limpiar búsqueda y filtros','clear'));
+ } else if(page==='Ficha'){
+  const i=db.items.find(i=>i.id===selected);
+  html=button('← Volver a resultados','go','Explorar')+'<article class="card" style="margin-top:12px">'+art(i.cat)+'<span class="tag">'+categories[i.cat]+'</span><h1>'+esc(i.title)+'</h1><p>'+esc(i.summary)+'</p><h2>Pasos de la recomendación</h2><ol>'+i.steps.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ol><div class="actions">'+button(p?.habits[i.id]?'Añadido a mis hábitos':'Añadir a mis hábitos','habit',i.id,true)+button(p?.favorites.includes(i.id)?'Quitar de favoritos':'Guardar en favoritos','favorite',i.id)+'</div></article>';
+ } else if(page==='Acceso'){
+  const form=(create)=>'<form class="card" id="'+(create?'register':'login')+'"><h2>'+(create?'Crear cuenta':'Iniciar sesión')+'</h2>'+(create?'<label>Nombre de prueba<input name="name" required></label>':'')+'<label>Correo de prueba<input type="email" name="email" required placeholder="demo@ejemplo.com"></label><label>Contraseña de prueba<input type="password" name="password" required></label><button class="primary">'+(create?'Crear cuenta':'Entrar')+'</button></form>';
+  html=hero('Registro e inicio de sesión','Acceso simulado. Usa datos ficticios.')+'<div class="forms">'+form(false)+form(true)+'</div>'+button('Entrar con cuenta de demostración','demo','',true);
+ } else if(page==='Favoritos'){
+  html=hero('Favoritos','Vuelve a tus recomendaciones.')+(p.favorites.length?'<div class="grid">'+p.favorites.map(id=>card(db.items.find(i=>i.id===id),true)).join('')+'</div>':'<p>Aún no tienes favoritos.</p>'+button('Explorar recomendaciones','go','Explorar'));
+ } else if(page==='Mis hábitos'){
+  const now=today(), monday=new Date(now);monday.setDate(now.getDate()-((now.getDay()+6)%7));const week=Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setDate(d.getDate()+i);return dayKey(d)});
+  html=hero('Mis hábitos','Tu seguimiento semanal.')+(Object.keys(p.habits).length?Object.entries(p.habits).map(([id,dates])=>{const i=db.items.find(item=>item.id===id);return '<article class="card">'+art(i.cat)+'<span class="tag">'+categories[i.cat]+'</span><h2>'+esc(i.title)+'</h2><p>Esta semana · '+week.filter(d=>dates.includes(d)).length+' días completados</p><div class="days">'+week.map((d,j)=>'<span class="day '+(dates.includes(d)?'done':'')+'">'+['Lu','Ma','Mi','Ju','Vi','Sá','Do'][j]+(dates.includes(d)?' ✓':'')+'</span>').join('')+'</div>'+button(dates.includes(dayKey(now))?'Hoy completado':'Marcar hoy como hecho','today',id,true)+'</article>'}).join(''):'<p>Añade un hábito desde una ficha.</p>'+button('Explorar recomendaciones','go','Explorar'));
+ } else if(page==='Mi perfil'){
+  html=hero('Mi perfil','Elige tus intereses y tu meta de bienestar.')+'<form id="profile" class="card"><h2>¿Qué te interesa?</h2>'+categories.map((c,i)=>'<label class="check"><input type="checkbox" name="interest" value="'+i+'" '+(p.interests.includes(i)?'checked':'')+'> '+c+'</label>').join('')+'<label>Meta de bienestar<input name="goal" value="'+esc(p.goal)+'"></label><button class="primary">Guardar cambios</button></form>';
+ } else if(page==='Para ti'){
+  const results=[...db.items].sort((a,b)=>Number(p?.interests.includes(b.cat)??false)-Number(p?.interests.includes(a.cat)??false));
+  html=hero('Para ti',p?.interests.length?'Según tus intereses':'Recomendaciones de las cuatro categorías')+button('Editar intereses','go','Mi perfil')+'<div class="grid" style="margin-top:12px">'+results.map(i=>card(i)).join('')+'</div>';
+ } else {
+  const item=db.items.find(i=>i.id===editId);
+  html=hero('Panel de contenidos','Modo editor de demostración.')+button('Nueva recomendación','edit','',true)+'<div class="actions" style="margin:12px 0">'+db.items.map(i=>button('Editar '+i.title,'edit',i.id)).join('')+'</div><form id="editor" class="card"><label>Título<input name="title" required value="'+esc(item?.title??'')+'"></label><label>Categoría<select name="cat">'+categories.map((c,i)=>'<option value="'+i+'" '+(item?.cat===i?'selected':'')+'>'+c+'</option>').join('')+'</select></label><label>Resumen<input name="summary" required value="'+esc(item?.summary??'')+'"></label><label>Pasos, uno por línea<textarea name="steps" required>'+esc(item?.steps.join('\n')??'')+'</textarea></label><button class="primary">Guardar ficha</button></form>';
+ }
+ app.innerHTML='<p id="status" role="status">'+esc(message)+'</p>'+html;
+}
+function enter(email,name){db.profiles[email]??={name,favorites:[],habits:{},interests:[],goal:''};db.active=email;save();const pending=next;next=null;page=pending?.page??'Explorar';message='Sesión de demostración iniciada.';if(pending?.action)perform(pending.action,pending.id);else render()}
+document.addEventListener('click',e=>{const b=e.target.closest('button[data-do]');if(!b)return;const a=b.dataset.do,id=b.dataset.arg;message='';
+ if(a==='go')go(id);else if(a==='detail'){selected=id;go('Ficha')}else if(a==='filter'){filter=Number(id);render()}else if(a==='clear'){filter=-1;query='';render()}else if(a==='logout'){db.active=null;save();go('Explorar')}else if(a==='demo')enter('demo@ejemplo.com','Demo');else if(a==='edit'){editId=id||null;render()}else perform(a,id)
+});
+app.addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.target);message='';
+ switch(e.target.id){
+ case 'search':query=String(f.get('query'));render();break;
+ case 'login':case 'register':enter(String(f.get('email')).trim().toLowerCase(),String(f.get('name')??'Demo'));break;
+ case 'profile':profile().interests=f.getAll('interest').map(Number);profile().goal=String(f.get('goal'));save();message='Preferencias guardadas.';render();break;
+ case 'editor':{const title=String(f.get('title')).trim(),summary=String(f.get('summary')).trim(),steps=String(f.get('steps')).split('\n').map(s=>s.trim()).filter(Boolean);if(!title||!summary||!steps.length){message='Completa el título, el resumen y al menos un paso.';render();return}const item={id:editId??crypto.randomUUID(),title,cat:Number(f.get('cat')),summary,steps};db.items=editId?db.items.map(i=>i.id===editId?item:i):[...db.items,item];editId=item.id;save();message='Ficha guardada en el catálogo.';render();break}
+ }
+});render();
+</script></html>
